@@ -1,0 +1,15 @@
+Sprites needed:
+- Player Frog
+- Finished Frog
+
+- Land
+- End Land
+
+- Road
+- Car
+- Lorry
+
+- River
+- Turtle
+- Crocodile
+- Log
