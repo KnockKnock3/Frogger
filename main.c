@@ -46,13 +46,13 @@ Lane lanes[16] = {  {0, 0, "....................................................
                     {0, 0, "................................................................", 'W'}, // Logs
                     {0, 0, "................................................................", 'W'}, // Logs
                     {0, 0, "................................................................", 'W'}, // Logs
-                    {0, 0, "................................................................", 'W'}, // Logs
+                    {1, 0, "1223....1223....1223....1223....1223....1223....1223....1223....", 'W'}, // Logs
                     {0, 0, "................................................................", 'L'}, // Land
                     {0, 0, "................................................................", 'R'}, // Road
                     {0, 0, "................................................................", 'R'}, // Road
                     {0, 0, "................................................................", 'R'}, // Road
                     {0, 0, "................................................................", 'R'}, // Road
-                    {5, 0, "X...X...X...X...X...X...X...X...X...X...X...X...X...X...X...X...", 'R'}, // Road
+                    {-5, 0, "X...X...X...X...X...X...X...X...X...X...X...X...X...X...X...X...", 'R'}, // Road
                     {0, 0, "................................................................", 'L'}, // Land
                     {0, 0, "................................................................", 'N'}, // Lives
                     };
@@ -110,9 +110,13 @@ int main() {
             }
         }
 
-        lanes[13].offset = lanes[13].offset + deltaTime * lanes[13].velocity;
-        if (lanes[13].offset < 0) {lanes[13].offset = 64 - abs(lanes[13].offset);}
-        else if (lanes[13].offset >= 64) {lanes[13].offset = fmod(lanes[13].offset, 64);}
+        for (int y = 0; y < 16; y++) {
+            if (lanes[y].velocity != 0.0f) {
+                lanes[y].offset = lanes[y].offset + deltaTime * lanes[y].velocity;
+                if (lanes[y].offset < 0) {lanes[y].offset = 64 - abs(lanes[y].offset);}
+                else if (lanes[y].offset >= 64) {lanes[y].offset = fmod(lanes[y].offset, 64);}
+            }
+        }
 
         BeginDrawing();
 
@@ -135,10 +139,27 @@ int main() {
                 }
             }
 
-            for (int x = 0; x < 64; x++) {
-                if (lanes[13].objects[x] == 'X') {
-                    float xPosition = fmod(x + lanes[13].offset + 1, 64) - 1;
-                    DrawTexturePro(tileset, carSource, (Rectangle){xPosition * TILE_SIZE, 13 * TILE_SIZE, TILE_SIZE, TILE_SIZE}, (Vector2){0, 0}, 0, WHITE);
+            for (int y = 0; y < 16; y++) {
+                if (lanes[y].type == 'R') {
+                    for (int x = 0; x < 64; x++) {
+                        if (lanes[y].objects[x] == 'X') {
+                            float xPosition = fmod(x + lanes[y].offset + 1, 64) - 1;
+                            DrawTexturePro(tileset, carSource, (Rectangle){xPosition * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE}, (Vector2){0, 0}, 0, WHITE);
+                        }
+                    }
+                } else if (lanes[y].type == 'W') {
+                    for (int x = 0; x < 64; x++) {
+                        Rectangle sourceToDraw = {0, 0, 0, 0};
+                        switch (lanes[y].objects[x]) {
+                            case '1': sourceToDraw = frontLogSource; break;
+                            case '2': sourceToDraw = middleLogSource; break;
+                            case '3': sourceToDraw = endLogSource; break;
+                        }
+                        if (sourceToDraw.width) {
+                            float xPosition = fmod(x + lanes[y].offset + 1, 64) - 1;
+                            DrawTexturePro(tileset, sourceToDraw, (Rectangle){xPosition * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE}, (Vector2){0, 0}, 0, WHITE);
+                        }
+                    }
                 }
             }
 
