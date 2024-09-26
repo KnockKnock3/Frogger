@@ -1,5 +1,6 @@
 #include "raylib.h"
 #include <stdio.h>
+#include <math.h>
 
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 128
@@ -9,6 +10,17 @@
 
 #define TILE_SIZE 8
 
+#define MAX(a,b) ((a) > (b) ? a : b)
+#define MIN(a,b) ((a) < (b) ? a : b)
+
+typedef struct Lane {
+    float velocity;
+    float offset;
+    char objects[64];
+    char type;
+} Lane;
+
+// N - no sprite, L - land, W - water, R - road
 const char background[16][16] = {   "NNNNNNNNNNNNNNNN",
                                     "LLLLLLLLLLLLLLLL",
                                     "LLLLLLLLLLLLLLLL",
@@ -26,31 +38,81 @@ const char background[16][16] = {   "NNNNNNNNNNNNNNNN",
                                     "LLLLLLLLLLLLLLLL",
                                     "NNNNNNNNNNNNNNNN"};
 
+// N - cannot move here, F - finish, W - water, L - land, R - road
+Lane lanes[16] = {  {0, 0, "................................................................", 'N'}, // Score
+                    {0, 0, "................................................................", 'N'}, // Extra land
+                    {0, 0, "................................................................", 'F'}, // Finish
+                    {0, 0, "................................................................", 'W'}, // Logs
+                    {0, 0, "................................................................", 'W'}, // Logs
+                    {0, 0, "................................................................", 'W'}, // Logs
+                    {0, 0, "................................................................", 'W'}, // Logs
+                    {0, 0, "................................................................", 'W'}, // Logs
+                    {0, 0, "................................................................", 'L'}, // Land
+                    {0, 0, "................................................................", 'R'}, // Road
+                    {0, 0, "................................................................", 'R'}, // Road
+                    {0, 0, "................................................................", 'R'}, // Road
+                    {0, 0, "................................................................", 'R'}, // Road
+                    {5, 0, "X...X...X...X...X...X...X...X...X...X...X...X...X...X...X...X...", 'R'}, // Road
+                    {0, 0, "................................................................", 'L'}, // Land
+                    {0, 0, "................................................................", 'N'}, // Lives
+                    };
+
 int main() {
-    Vector2 playerPosition = {8, 0};
+    Vector2 playerPosition = {8, 14};
+    float gameTime = 0;
 
     InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Frogger");
+
+    RenderTexture2D screen = LoadRenderTexture(SCREEN_WIDTH, SCREEN_HEIGHT);
+    Rectangle screenSource = {0, -screen.texture.height, screen.texture.width, -screen.texture.height};
+    Rectangle screenDestination = (Rectangle){0, 0, (float)(WINDOW_WIDTH), (float)(WINDOW_HEIGHT)};
+
+    Texture2D tileset = LoadTexture("res/tileset.png");
+    Rectangle playerSource = {0, 0, TILE_SIZE, TILE_SIZE};
+    Rectangle playerFinishedSource = {TILE_SIZE, 0, TILE_SIZE, TILE_SIZE};
+    Rectangle landSource = {0, TILE_SIZE, TILE_SIZE, TILE_SIZE};
+    Rectangle roadSource = {0, 2 * TILE_SIZE, TILE_SIZE, TILE_SIZE};
+    Rectangle waterSource = {0, 3 * TILE_SIZE, TILE_SIZE, TILE_SIZE};
+    Rectangle carSource = {0, 4 * TILE_SIZE, TILE_SIZE, TILE_SIZE};
+    Rectangle frontLogSource = {0, 5 * TILE_SIZE, TILE_SIZE, TILE_SIZE};
+    Rectangle middleLogSource = {TILE_SIZE, 5 * TILE_SIZE, TILE_SIZE, TILE_SIZE};
+    Rectangle endLogSource = {2 * TILE_SIZE, 5 * TILE_SIZE, TILE_SIZE, TILE_SIZE};
 
     SetTargetFPS(60);
 
     while (!WindowShouldClose()) {
 
         float deltaTime = GetFrameTime();
+        gameTime += deltaTime;
 
-        RenderTexture2D screen = LoadRenderTexture(SCREEN_WIDTH, SCREEN_HEIGHT);
-        Rectangle screenSource = {0, -screen.texture.height, screen.texture.width, -screen.texture.height};
-        Rectangle screenDestination = (Rectangle){0, 0, (float)(WINDOW_WIDTH), (float)(WINDOW_HEIGHT)};
+        if (IsKeyPressed(KEY_LEFT) || IsKeyPressed(KEY_A)) {
+            switch (lanes[(int)playerPosition.y].type) {
+            case 'L':
+            case 'R': playerPosition.x = MAX(playerPosition.x - 1, 0); break;  
+            }
+        }
+        if (IsKeyPressed(KEY_RIGHT) || IsKeyPressed(KEY_D)) {
+            switch (lanes[(int)playerPosition.y].type) {
+            case 'L':
+            case 'R': playerPosition.x = MIN(playerPosition.x + 1, 15); break;  
+            }
+        }
+        if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_W)) {
+            switch (lanes[(int)(playerPosition.y - 1)].type) {
+            case 'L':
+            case 'R': playerPosition.y = playerPosition.y - 1; break;  
+            }
+        }
+        if (IsKeyPressed(KEY_DOWN) || IsKeyPressed(KEY_S)) {
+            switch (lanes[(int)(playerPosition.y + 1)].type) {
+            case 'L':
+            case 'R': playerPosition.y = playerPosition.y + 1; break;  
+            }
+        }
 
-        Texture2D tileset = LoadTexture("res/tileset.png");
-        Rectangle playerSource = {0, 0, TILE_SIZE, TILE_SIZE};
-        Rectangle playerFinishedSource = {TILE_SIZE, 0, TILE_SIZE, TILE_SIZE};
-        Rectangle landSource = {0, TILE_SIZE, TILE_SIZE, TILE_SIZE};
-        Rectangle roadSource = {0, 2 * TILE_SIZE, TILE_SIZE, TILE_SIZE};
-        Rectangle waterSource = {0, 3 * TILE_SIZE, TILE_SIZE, TILE_SIZE};
-        Rectangle carSource = {0, 4 * TILE_SIZE, TILE_SIZE, TILE_SIZE};
-        Rectangle frontLogSource = {0, 5 * TILE_SIZE, TILE_SIZE, TILE_SIZE};
-        Rectangle middleLogSource = {TILE_SIZE, 5 * TILE_SIZE, TILE_SIZE, TILE_SIZE};
-        Rectangle endLogSource = {2 * TILE_SIZE, 5 * TILE_SIZE, TILE_SIZE, TILE_SIZE};
+        lanes[13].offset = lanes[13].offset + deltaTime * lanes[13].velocity;
+        if (lanes[13].offset < 0) {lanes[13].offset = 64 - abs(lanes[13].offset);}
+        else if (lanes[13].offset >= 64) {lanes[13].offset = fmod(lanes[13].offset, 64);}
 
         BeginDrawing();
 
@@ -73,6 +135,17 @@ int main() {
                 }
             }
 
+            for (int x = 0; x < 64; x++) {
+                if (lanes[13].objects[x] == 'X') {
+                    float xPosition = fmod(x + lanes[13].offset + 1, 64) - 1;
+                    DrawTexturePro(tileset, carSource, (Rectangle){xPosition * TILE_SIZE, 13 * TILE_SIZE, TILE_SIZE, TILE_SIZE}, (Vector2){0, 0}, 0, WHITE);
+                }
+            }
+
+            if (lanes[(int)playerPosition.y].type == 'L' || lanes[(int)playerPosition.y].type == 'R') {
+                DrawTexturePro(tileset, playerSource, (Rectangle){playerPosition.x * TILE_SIZE, playerPosition.y * TILE_SIZE, TILE_SIZE, TILE_SIZE}, (Vector2){0, 0}, 0, WHITE);
+            }
+
             EndTextureMode();
 
             DrawTexturePro(screen.texture, screenSource, screenDestination, (Vector2){0, 0}, 0, WHITE);
@@ -82,6 +155,5 @@ int main() {
 
     }
 
-    printf("Hello World!\n");
     return 0;
 }
