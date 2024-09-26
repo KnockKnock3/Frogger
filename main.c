@@ -20,6 +20,11 @@ typedef struct Lane {
     char type;
 } Lane;
 
+typedef struct Vector2Int {
+    int x;
+    int y;
+} Vector2Int;
+
 // N - no sprite, L - land, W - water, R - road
 const char background[16][16] = {   "NNNNNNNNNNNNNNNN",
                                     "LLLLLLLLLLLLLLLL",
@@ -45,8 +50,8 @@ Lane lanes[16] = {  {0, 0, "....................................................
                     {0, 0, "................................................................", 'W'}, // Logs
                     {0, 0, "................................................................", 'W'}, // Logs
                     {0, 0, "................................................................", 'W'}, // Logs
-                    {0, 0, "................................................................", 'W'}, // Logs
-                    {1, 0, "1223....1223....1223....1223....1223....1223....1223....1223....", 'W'}, // Logs
+                    {-3, 0, "1223....1223....1223....1223....1223....1223....1223....1223....", 'W'}, // Logs
+                    {5, 0, "1223....1223....1223....1223....1223....1223....1223....1223....", 'W'}, // Logs
                     {0, 0, "................................................................", 'L'}, // Land
                     {0, 0, "................................................................", 'R'}, // Road
                     {0, 0, "................................................................", 'R'}, // Road
@@ -57,9 +62,22 @@ Lane lanes[16] = {  {0, 0, "....................................................
                     {0, 0, "................................................................", 'N'}, // Lives
                     };
 
+float GetPositionOfObject(int laneIndex, int xPosition) {
+    float newXPosition = xPosition + lanes[laneIndex].offset;
+    if (newXPosition <= -1) {newXPosition += 64;}
+    else if(newXPosition >= 63) {newXPosition -= 64;}
+    //float newXPosition = fmod(xPosition + lanes[laneIndex].offset + 1, 64) - 1;
+    return newXPosition;
+}
+
+float TransformPositionToLane(int laneIndex, float xPosition) {
+    return xPosition - lanes[laneIndex].offset;
+}
+
 int main() {
-    Vector2 playerPosition = {8, 14};
+    Vector2Int playerPosition = {8, 14};
     float gameTime = 0;
+    bool dead;
 
     InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Frogger");
 
@@ -69,7 +87,8 @@ int main() {
 
     Texture2D tileset = LoadTexture("res/tileset.png");
     Rectangle playerSource = {0, 0, TILE_SIZE, TILE_SIZE};
-    Rectangle playerFinishedSource = {TILE_SIZE, 0, TILE_SIZE, TILE_SIZE};
+    Rectangle playerDeadSource = {TILE_SIZE, 0, TILE_SIZE, TILE_SIZE};
+    Rectangle playerFinishedSource = {2 * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE};
     Rectangle landSource = {0, TILE_SIZE, TILE_SIZE, TILE_SIZE};
     Rectangle roadSource = {0, 2 * TILE_SIZE, TILE_SIZE, TILE_SIZE};
     Rectangle waterSource = {0, 3 * TILE_SIZE, TILE_SIZE, TILE_SIZE};
@@ -84,29 +103,75 @@ int main() {
 
         float deltaTime = GetFrameTime();
         gameTime += deltaTime;
+        dead = false;
 
         if (IsKeyPressed(KEY_LEFT) || IsKeyPressed(KEY_A)) {
-            switch (lanes[(int)playerPosition.y].type) {
+            switch (lanes[playerPosition.y].type) {
             case 'L':
-            case 'R': playerPosition.x = MAX(playerPosition.x - 1, 0); break;  
+            case 'R': playerPosition.x = MAX(playerPosition.x - 1, 0); break;
+            case 'W':
+                playerPosition.x = playerPosition.x - 1;
+                if (playerPosition.x < 0) {playerPosition.x = playerPosition.x + 64;}
+                break;
             }
         }
         if (IsKeyPressed(KEY_RIGHT) || IsKeyPressed(KEY_D)) {
-            switch (lanes[(int)playerPosition.y].type) {
+            switch (lanes[playerPosition.y].type) {
             case 'L':
-            case 'R': playerPosition.x = MIN(playerPosition.x + 1, 15); break;  
+            case 'R': playerPosition.x = MIN(playerPosition.x + 1, 15); break;
+            case 'W':
+                playerPosition.x = playerPosition.x + 1;
+                if (playerPosition.x > 63) {playerPosition.x = playerPosition.x - 64;}
+                break;
             }
         }
         if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_W)) {
-            switch (lanes[(int)(playerPosition.y - 1)].type) {
-            case 'L':
-            case 'R': playerPosition.y = playerPosition.y - 1; break;  
+            if (lanes[playerPosition.y].type == 'W') {
+                switch (lanes[(playerPosition.y - 1)].type) {
+                    case 'L':
+                    case 'R':
+                        playerPosition.x = (int)GetPositionOfObject(playerPosition.y, playerPosition.x);
+                        playerPosition.y = playerPosition.y - 1;
+                        break;
+                    case 'W':
+                        playerPosition.x = (int)TransformPositionToLane(playerPosition.y - 1, GetPositionOfObject(playerPosition.y, playerPosition.x));
+                        if (playerPosition.x < 0) {playerPosition.x = playerPosition.x + 64;}
+                        else if (playerPosition.x > 63) {playerPosition.x = playerPosition.x - 64;}
+                        playerPosition.y = playerPosition.y - 1;
+                        break;
+                }
+            } else {
+                switch (lanes[playerPosition.y - 1].type) {
+                    case 'L':
+                    case 'R': playerPosition.y = playerPosition.y - 1; break;
+                    case 'W':
+                        playerPosition.y = playerPosition.y - 1;
+                        playerPosition.x = (int)TransformPositionToLane(playerPosition.y, playerPosition.x);
+                        break;
+                }
             }
         }
         if (IsKeyPressed(KEY_DOWN) || IsKeyPressed(KEY_S)) {
-            switch (lanes[(int)(playerPosition.y + 1)].type) {
-            case 'L':
-            case 'R': playerPosition.y = playerPosition.y + 1; break;  
+            if (lanes[playerPosition.y].type == 'W') {
+                switch (lanes[(playerPosition.y + 1)].type) {
+                    case 'L':
+                    case 'R':
+                        playerPosition.x = (int)GetPositionOfObject(playerPosition.y, playerPosition.x);
+                        playerPosition.y = playerPosition.y + 1;
+                        break;
+                    case 'W':
+                        playerPosition.x = (int)TransformPositionToLane(playerPosition.y + 1, GetPositionOfObject(playerPosition.y, playerPosition.x));
+                        if (playerPosition.x < 0) {playerPosition.x = playerPosition.x + 64;}
+                        else if (playerPosition.x > 63) {playerPosition.x = playerPosition.x - 64;}
+                        playerPosition.y = playerPosition.y + 1;
+                        break;
+                }
+            } else {
+                switch (lanes[(playerPosition.y + 1)].type) {
+                    case 'L':
+                    case 'R': playerPosition.y = playerPosition.y + 1; break;
+                    case 'W': playerPosition.y = playerPosition.y + 1; break;
+                }
             }
         }
 
@@ -115,6 +180,21 @@ int main() {
                 lanes[y].offset = lanes[y].offset + deltaTime * lanes[y].velocity;
                 if (lanes[y].offset < 0) {lanes[y].offset = 64 - abs(lanes[y].offset);}
                 else if (lanes[y].offset >= 64) {lanes[y].offset = fmod(lanes[y].offset, 64);}
+            }
+        }
+
+        if (lanes[playerPosition.y].type == 'R') {
+            for (int x = 0; x < 64; x++) {
+                if (lanes[playerPosition.y].objects[x] == 'X') {
+                    float xPosition = GetPositionOfObject(playerPosition.y, x);
+                    if (CheckCollisionRecs((Rectangle){playerPosition.x, playerPosition.y, 1, 1}, (Rectangle){xPosition, playerPosition.y, 1, 1})) {
+                        dead = true;
+                    }
+                }
+            }
+        } else if (lanes[playerPosition.y].type == 'W') {
+            if (lanes[playerPosition.y].objects[playerPosition.x] == '.') {
+                dead = true;
             }
         }
 
@@ -143,7 +223,7 @@ int main() {
                 if (lanes[y].type == 'R') {
                     for (int x = 0; x < 64; x++) {
                         if (lanes[y].objects[x] == 'X') {
-                            float xPosition = fmod(x + lanes[y].offset + 1, 64) - 1;
+                            float xPosition = GetPositionOfObject(y, x);
                             DrawTexturePro(tileset, carSource, (Rectangle){xPosition * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE}, (Vector2){0, 0}, 0, WHITE);
                         }
                     }
@@ -156,15 +236,17 @@ int main() {
                             case '3': sourceToDraw = endLogSource; break;
                         }
                         if (sourceToDraw.width) {
-                            float xPosition = fmod(x + lanes[y].offset + 1, 64) - 1;
+                            float xPosition = GetPositionOfObject(y, x);
                             DrawTexturePro(tileset, sourceToDraw, (Rectangle){xPosition * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE}, (Vector2){0, 0}, 0, WHITE);
                         }
                     }
                 }
             }
 
-            if (lanes[(int)playerPosition.y].type == 'L' || lanes[(int)playerPosition.y].type == 'R') {
-                DrawTexturePro(tileset, playerSource, (Rectangle){playerPosition.x * TILE_SIZE, playerPosition.y * TILE_SIZE, TILE_SIZE, TILE_SIZE}, (Vector2){0, 0}, 0, WHITE);
+            if (lanes[playerPosition.y].type == 'L' || lanes[playerPosition.y].type == 'R') {
+                DrawTexturePro(tileset, dead? playerDeadSource:playerSource, (Rectangle){playerPosition.x * TILE_SIZE, playerPosition.y * TILE_SIZE, TILE_SIZE, TILE_SIZE}, (Vector2){0, 0}, 0, WHITE);
+            } else if (lanes[playerPosition.y].type == 'W') {
+                DrawTexturePro(tileset, dead? playerDeadSource:playerSource, (Rectangle){GetPositionOfObject(playerPosition.y, playerPosition.x) * TILE_SIZE, playerPosition.y * TILE_SIZE, TILE_SIZE, TILE_SIZE}, (Vector2){0, 0}, 0, WHITE);
             }
 
             EndTextureMode();

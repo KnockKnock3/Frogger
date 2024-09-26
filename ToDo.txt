@@ -1,6 +1,7 @@
 Sprites needed:
 - Player Frog
 - Finished Frog
+- Dead Frog
 
 - Land
 - End Land
